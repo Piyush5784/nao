@@ -1,5 +1,6 @@
 from nao_core.commands.chat import chat
 from nao_core.commands.debug import debug
+from nao_core.commands.delete import delete
 from nao_core.commands.deploy import deploy
 from nao_core.commands.docs import docs
 from nao_core.commands.init import init
@@ -13,6 +14,7 @@ from nao_core.commands.upgrade import upgrade
 __all__ = [
     "chat",
     "debug",
+    "delete",
     "deploy",
     "docs",
     "init",

@@ -87,6 +87,19 @@ export const updateProjectMemberRole = async (projectId: string, userId: string,
 		.execute();
 };
 
+export const listScheduledJobIdsForProject = async (projectId: string): Promise<string[]> => {
+	const automations = await db
+		.select({ scheduledJobId: s.automation.scheduledJobId })
+		.from(s.automation)
+		.where(eq(s.automation.projectId, projectId))
+		.execute();
+	return automations.map((a) => a.scheduledJobId).filter((id): id is string => id !== null);
+};
+
+export const deleteProject = async (projectId: string): Promise<void> => {
+	await db.delete(s.project).where(eq(s.project.id, projectId)).execute();
+};
+
 export const listProjectMembershipsForUser = async (
 	userId: string,
 ): Promise<Array<{ projectId: string; projectPath: string | null; role: UserRole }>> => {

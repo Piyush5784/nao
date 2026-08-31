@@ -7,9 +7,13 @@ import yaml from 'js-yaml';
 
 import type { App } from '../app';
 import { env } from '../env';
-import { ensureContextRecommendationsScheduleForNewProject } from '../handlers/context-recommendations.handler';
+import {
+	contextRecommendationsJobUniqueKey,
+	ensureContextRecommendationsScheduleForNewProject,
+} from '../handlers/context-recommendations.handler';
 import * as orgQueries from '../queries/organization.queries';
 import * as projectQueries from '../queries/project.queries';
+import * as scheduledJobQueries from '../queries/scheduled-job.queries';
 import { validateApiKey } from '../services/api-key.service';
 
 export const deployRoutes = async (app: App) => {
@@ -99,6 +103,42 @@ export const deployRoutes = async (app: App) => {
 		} finally {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
+	});
+
+	app.delete('/deploy', async (request, reply) => {
+		const authHeader = request.headers.authorization;
+		if (!authHeader?.startsWith('Bearer ')) {
+			return reply.status(401).send({ error: 'Missing or invalid Authorization header' });
+		}
+
+		const org = await validateApiKey(authHeader.slice(7));
+		if (!org) {
+			return reply.status(401).send({ error: 'Invalid API key' });
+		}
+
+		const projectName = (request.query as { project?: string }).project;
+		if (!projectName) {
+			return reply.status(400).send({ error: 'Missing required query parameter "project"' });
+		}
+
+		const project = await projectQueries.getProjectByOrgAndName(org.id, projectName);
+		if (!project) {
+			return reply.status(404).send({ error: `No project named "${projectName}" found` });
+		}
+
+		const scheduledJobIds = await projectQueries.listScheduledJobIdsForProject(project.id);
+		for (const jobId of scheduledJobIds) {
+			await scheduledJobQueries.deleteJob(jobId);
+		}
+		await scheduledJobQueries.deleteJobByUniqueKey(contextRecommendationsJobUniqueKey(project.id));
+
+		await projectQueries.deleteProject(project.id);
+
+		if (project.path && fs.existsSync(project.path)) {
+			fs.rmSync(project.path, { recursive: true, force: true });
+		}
+
+		return reply.send({ projectId: project.id, projectName: project.name, status: 'deleted' });
 	});
 };
 

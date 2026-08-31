@@ -11,6 +11,7 @@ from nao_core.branding import banner, should_show_banner  # noqa: E402
 from nao_core.commands import (  # noqa: E402
     chat,
     debug,
+    delete,
     deploy,
     docs,
     init,
@@ -28,6 +29,7 @@ app = App(version=__version__)
 
 app.command(chat)
 app.command(debug)
+app.command(delete)
 app.command(deploy)
 app.command(docs)
 app.command(init)
