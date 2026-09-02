@@ -1,9 +1,10 @@
-import { type BackgroundModelCategory, selectBackgroundModel } from '@nao/shared';
+import { type BackgroundModelCategory, providerLabel, selectBackgroundModel } from '@nao/shared';
 import type { LlmProvider, LlmSelectedModel } from '@nao/shared/types';
 
 import {
 	createProviderModel,
 	getDefaultModelId,
+	getProviderApiKeyRequirement,
 	getProviderMeta,
 	LLM_PROVIDERS,
 	type ProviderModelResult,
@@ -184,11 +185,34 @@ function toProviderSettings(configured: ConfigLlmProvider): ProviderSettings {
 	const apiKey = configured.apiKey ?? getEnvApiKey(configured.provider) ?? '';
 	const baseURL = configured.baseUrl ?? getEnvBaseUrl(configured.provider);
 
+	assertApiKeyResolved(configured.provider, apiKey, configured.credentials);
+
 	return {
 		apiKey,
 		...(baseURL && { baseURL }),
 		...(configured.credentials && { credentials: configured.credentials }),
 	};
+}
+
+/**
+ * Fail fast when nao_config.yaml names a provider that needs an API key but the `{{ env(...) }}`
+ * reference for it didn't resolve, instead of sending the request with an empty key and letting
+ * the provider's own auth error surface in chat.
+ */
+function assertApiKeyResolved(
+	provider: LlmProvider,
+	apiKey: string,
+	credentials: Record<string, string> | null,
+): void {
+	if (apiKey || credentials || !getProviderApiKeyRequirement(provider)) {
+		return;
+	}
+
+	const envVar = getProviderMeta(provider).envVar;
+	throw new Error(
+		`${providerLabel(provider)} is configured in nao_config.yaml but its API key did not resolve. ` +
+			`Set ${envVar} in the project's environment variables (Settings > Environment Variables) or in the server environment.`,
+	);
 }
 
 /**
